@@ -29,7 +29,7 @@ backbone:
   - [-1, 1, SPPF, [1024, 5]] # 9
   - [-1, 2, C2PSA, [1024]] # 10
 
-# YOLO11n head
+# YOLO11s head
 head:
   - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
   - [[-1, 6], 1, Concat, [1]] # cat backbone P4
@@ -42,7 +42,7 @@ head:
   - [-1, 1, Conv, [256, 3, 2]]
   - [[-1, 13], 1, Concat, [1]] # cat head P4
   - [-1, 2, C3k2, [512, False]] # 19 (P4/16-medium)
-  - [-1, 1, CBAM, [128]]
+  - [-1, 1, CBAM, [256]]
 
   - [-1, 1, Conv, [512, 3, 2]]
   - [[-1, 10], 1, Concat, [1]] # cat head P5
