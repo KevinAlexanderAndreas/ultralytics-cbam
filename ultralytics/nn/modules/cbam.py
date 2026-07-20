@@ -16,7 +16,7 @@ class ChannelAttention(nn.Module):
         self.mlp = nn.Sequential(
             nn.Conv2d(channels, hidden, kernel_size=1, bias=False),
             nn.ReLU(),
-            nn.Conv2d(hidden, channels, kernel_size=1, bias=False)
+            nn.Conv2d(hidden, channels, kernel_size=1, bias=False),
         )
 
     def forward(self, x):
@@ -37,12 +37,7 @@ class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
         super().__init__()
 
-        self.conv = nn.Conv2d(
-            2, 1,
-            kernel_size=kernel_size,
-            padding=kernel_size // 2,
-            bias=False
-        )
+        self.conv = nn.Conv2d(2, 1, kernel_size=kernel_size, padding=kernel_size // 2, bias=False)
 
     def forward(self, x):
         avg = torch.mean(x, dim=1, keepdim=True)
