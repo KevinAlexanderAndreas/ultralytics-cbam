@@ -924,8 +924,7 @@ class Metric(SimpleClass):
             (float): The mAP at an IoU threshold of 0.5.
         """
         return self.all_ap[:, 0].mean() if len(self.all_ap) else 0.0
-        
-    # ==================== CUSTOM METRICS ==========================================================================================================================================================
+
     @property
     def map60(self):
         """Mean AP at IoU=0.60."""
@@ -935,7 +934,6 @@ class Metric(SimpleClass):
     def map70(self):
         """Mean AP at IoU=0.70."""
         return self.all_ap[:, 4].mean() if len(self.all_ap) else 0.0
-    # ===============================================================================================================================================================================================
 
     @property
     def map75(self) -> float:
