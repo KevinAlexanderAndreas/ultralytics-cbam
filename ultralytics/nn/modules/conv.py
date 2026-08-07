@@ -511,54 +511,45 @@ class RepConv(nn.Module):
 
 class ChannelAttention(nn.Module):
     """Channel Attention Module from Woo et al. (ECCV 2018).
-
     Applies channel attention using both global average pooling and
     global max pooling followed by a shared MLP.
-
     Args:
         channels (int): Number of input channels.
         reduction (int): Channel reduction ratio. Default is 16.
     """
-
     def __init__(self, channels: int, reduction: int = 16) -> None:
         super().__init__()
-
         hidden = max(1, channels // reduction)
-
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.max_pool = nn.AdaptiveMaxPool2d(1)
-
-        # Shared MLP
+        # Shared MLP (matches official repo: Linear layers, bias=True by default)
         self.mlp = nn.Sequential(
-            nn.Conv2d(channels, hidden, kernel_size=1, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(hidden, channels, kernel_size=1, bias=False),
+            nn.Flatten(),
+            nn.Linear(channels, hidden, bias=True),
+            nn.ReLU(),
+            nn.Linear(hidden, channels, bias=True),
         )
-
         self.act = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        avg_out = self.mlp(self.avg_pool(x))
-        max_out = self.mlp(self.max_pool(x))
+        b, c, h, w = x.shape
+        avg_pool = F.avg_pool2d(x, (h, w), stride=(h, w))
+        max_pool = F.max_pool2d(x, (h, w), stride=(h, w))
 
-        attention = self.act(avg_out + max_out)
+        avg_out = self.mlp(avg_pool)
+        max_out = self.mlp(max_pool)
 
+        attention = self.act(avg_out + max_out).view(b, c, 1, 1)
         return x * attention
 
-
 class SpatialAttention(nn.Module):
-    """Spatial-attention module for feature recalibration.
-
+    """Spatial-attention module from Woo et al. (ECCV 2018).
     Applies attention weights to spatial dimensions based on channel statistics.
-
     Attributes:
         cv1 (nn.Conv2d): Convolution layer for spatial attention.
+        bn (nn.BatchNorm2d): Batch norm applied after the conv (per official repo).
         act (nn.Sigmoid): Sigmoid activation for attention weights.
     """
-
     def __init__(self, kernel_size=7):
         """Initialize Spatial-attention module.
-
         Args:
             kernel_size (int): Size of the convolutional kernel (3 or 7).
         """
@@ -566,18 +557,21 @@ class SpatialAttention(nn.Module):
         assert kernel_size in {3, 7}, "kernel size must be 3 or 7"
         padding = 3 if kernel_size == 7 else 1
         self.cv1 = nn.Conv2d(2, 1, kernel_size, padding=padding, bias=False)
+        self.bn = nn.BatchNorm2d(1, eps=1e-5, momentum=0.01, affine=True)
         self.act = nn.Sigmoid()
 
     def forward(self, x):
         """Apply spatial attention to input tensor.
-
         Args:
             x (torch.Tensor): Input tensor.
-
         Returns:
             (torch.Tensor): Spatial-attended output tensor.
         """
-        return x * self.act(self.cv1(torch.cat([torch.mean(x, 1, keepdim=True), torch.max(x, 1, keepdim=True)[0]], 1)))
+        max_pool = torch.max(x, 1, keepdim=True)[0]
+        avg_pool = torch.mean(x, 1, keepdim=True)
+        x_compress = torch.cat([max_pool, avg_pool], dim=1)  # max first, then mean
+        x_out = self.bn(self.cv1(x_compress))
+        return x * self.act(x_out)
 
 
 class CBAM(nn.Module):
