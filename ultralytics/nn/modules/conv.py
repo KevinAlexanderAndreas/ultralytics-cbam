@@ -510,40 +510,40 @@ class RepConv(nn.Module):
 
 
 class ChannelAttention(nn.Module):
-    """Channel-attention module for feature recalibration.
+    """Channel Attention Module from Woo et al. (ECCV 2018).
 
-    Applies attention weights to channels based on global average pooling.
+    Applies channel attention using both global average pooling and
+    global max pooling followed by a shared MLP.
 
-    Attributes:
-        pool (nn.AdaptiveAvgPool2d): Global average pooling.
-        fc (nn.Conv2d): Fully connected layer implemented as 1x1 convolution.
-        act (nn.Sigmoid): Sigmoid activation for attention weights.
-
-    References:
-        https://github.com/open-mmlab/mmdetection/tree/v3.0.0rc1/configs/rtmdet
+    Args:
+        channels (int): Number of input channels.
+        reduction (int): Channel reduction ratio. Default is 16.
     """
 
-    def __init__(self, channels: int) -> None:
-        """Initialize Channel-attention module.
-
-        Args:
-            channels (int): Number of input channels.
-        """
+    def __init__(self, channels: int, reduction: int = 16) -> None:
         super().__init__()
-        self.pool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Conv2d(channels, channels, 1, 1, 0, bias=True)
+
+        hidden = max(1, channels // reduction)
+
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+
+        # Shared MLP
+        self.mlp = nn.Sequential(
+            nn.Conv2d(channels, hidden, kernel_size=1, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(hidden, channels, kernel_size=1, bias=False),
+        )
+
         self.act = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Apply channel attention to input tensor.
+        avg_out = self.mlp(self.avg_pool(x))
+        max_out = self.mlp(self.max_pool(x))
 
-        Args:
-            x (torch.Tensor): Input tensor.
+        attention = self.act(avg_out + max_out)
 
-        Returns:
-            (torch.Tensor): Channel-attended output tensor.
-        """
-        return x * self.act(self.fc(self.pool(x)))
+        return x * attention
 
 
 class SpatialAttention(nn.Module):
