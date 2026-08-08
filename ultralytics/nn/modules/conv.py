@@ -607,6 +607,31 @@ class CBAM(nn.Module):
         """
         return self.spatial_attention(self.channel_attention(x))
 
+class ChannelOnlyAttention(nn.Module):
+    """Channel-only attention."""
+
+    def __init__(self, c1: int, reduction: int = 16) -> None:
+        super().__init__()
+        self.channel_attention = ChannelAttention(
+            channels=c1,
+            reduction=reduction,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.channel_attention(x)
+
+
+class SpatialOnlyAttention(nn.Module):
+    """Spatial-only attention."""
+
+    def __init__(self, c1: int, kernel_size: int = 7) -> None:
+        super().__init__()
+        self.spatial_attention = SpatialAttention(
+            kernel_size=kernel_size,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.spatial_attention(x)
 
 class Concat(nn.Module):
     """Concatenate a list of tensors along specified dimension.
